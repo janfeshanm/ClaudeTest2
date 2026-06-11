@@ -301,6 +301,85 @@
       scene.add(chip);
     }
 
+    // ── Tree swing ────────────────────────────────────────────────────────────
+    const ropeMat = new THREE.MeshLambertMaterial({ color: 0xd4b483 });
+    const seatMat = new THREE.MeshLambertMaterial({ color: 0xa0522d });
+
+    const ROPE_LEN  = 4.0;
+    const ROPE_HALF = 0.36; // half-gap between the two ropes
+
+    // Pivot sits in the canopy — ropes visually disappear into the foliage
+    const swingPivot = new THREE.Group();
+    swingPivot.position.set(-2.4, 7.8, 0.7);
+    scene.add(swingPivot);
+
+    [-ROPE_HALF, ROPE_HALF].forEach(x => {
+      const rope = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.025, 0.025, ROPE_LEN, 5), ropeMat
+      );
+      rope.position.set(x, -ROPE_LEN / 2, 0);
+      swingPivot.add(rope);
+    });
+
+    const swingSeat = new THREE.Mesh(
+      new THREE.BoxGeometry(ROPE_HALF * 2 + 0.22, 0.07, 0.24), seatMat
+    );
+    swingSeat.position.y = -ROPE_LEN;
+    swingPivot.add(swingSeat);
+
+    // ── Kid on the swing ──────────────────────────────────────────────────────
+    const kSkin  = new THREE.MeshLambertMaterial({ color: 0xffcc99 });
+    const kTop   = new THREE.MeshLambertMaterial({ color: 0xe91e63 }); // pink top
+    const kPants = new THREE.MeshLambertMaterial({ color: 0x283593 });
+    const kShoe  = new THREE.MeshLambertMaterial({ color: 0xb71c1c });
+    const kHair  = new THREE.MeshLambertMaterial({ color: 0x3e2723 });
+
+    const kidGroup = new THREE.Group();
+    kidGroup.position.y = -ROPE_LEN; // sit on seat
+    swingPivot.add(kidGroup);
+
+    function km(geo, mat, x, y, z) {
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(x, y, z);
+      kidGroup.add(m);
+      return m;
+    }
+
+    // Torso, head, hair
+    km(new THREE.BoxGeometry(0.34, 0.38, 0.20), kTop,  0, 0.22, 0);
+    km(new THREE.BoxGeometry(0.27, 0.27, 0.27), kSkin, 0, 0.57, 0);
+    km(new THREE.BoxGeometry(0.28, 0.08, 0.28), kHair, 0, 0.72, 0);   // hair cap
+    km(new THREE.BoxGeometry(0.08, 0.19, 0.08), kHair, -0.20, 0.67, 0); // left pigtail
+    km(new THREE.BoxGeometry(0.08, 0.19, 0.08), kHair,  0.20, 0.67, 0); // right pigtail
+
+    // Arms reaching up and outward to grip the ropes
+    const kArmL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.045, 0.52, 5), kTop);
+    kArmL.position.set(-0.32, 0.46, 0);
+    kArmL.rotation.z = -0.52;
+    kidGroup.add(kArmL);
+    const kArmR = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.045, 0.52, 5), kTop);
+    kArmR.position.set( 0.32, 0.46, 0);
+    kArmR.rotation.z =  0.52;
+    kidGroup.add(kArmR);
+
+    // Leg group — pivot at hips so rotation.x kicks legs forward/back
+    const kidLegsGroup = new THREE.Group();
+    kidGroup.add(kidLegsGroup);
+
+    function kl(geo, mat, x, y, z) {
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(x, y, z);
+      kidLegsGroup.add(m);
+      return m;
+    }
+
+    kl(new THREE.BoxGeometry(0.11, 0.11, 0.30), kPants, -0.10,  0.00, -0.15); // L thigh
+    kl(new THREE.BoxGeometry(0.11, 0.11, 0.30), kPants,  0.10,  0.00, -0.15); // R thigh
+    kl(new THREE.BoxGeometry(0.09, 0.28, 0.09), kPants, -0.10, -0.20, -0.30); // L shin
+    kl(new THREE.BoxGeometry(0.09, 0.28, 0.09), kPants,  0.10, -0.20, -0.30); // R shin
+    kl(new THREE.BoxGeometry(0.12, 0.09, 0.17), kShoe,  -0.10, -0.36, -0.30); // L shoe
+    kl(new THREE.BoxGeometry(0.12, 0.09, 0.17), kShoe,   0.10, -0.36, -0.30); // R shoe
+
     // ── Floating leaf particles ────────────────────────────────────────────────
     const LEAF_COUNT = 350;
     const leafPos = new Float32Array(LEAF_COUNT * 3);
@@ -352,6 +431,11 @@
       rightArmPivot.rotation.x = -0.10 + chopSin * 1.10; // -1.20 raised back → +1.00 impact
       leftArmPivot.rotation.x  =  0.20 + Math.sin(t * 2.2 + 0.6) * 0.18; // small counter-sway
       jack.rotation.z = chopSin * 0.04; // lean into swing
+
+      // Tree swing animation
+      const swingAngle = Math.sin(t * 1.1) * 0.42;
+      swingPivot.rotation.x = swingAngle;
+      kidLegsGroup.rotation.x = Math.sin(t * 1.1 + 0.7) * 0.30; // legs kick out of phase
 
       // Update floating leaves
       const p = leafPtGeo.attributes.position.array;
