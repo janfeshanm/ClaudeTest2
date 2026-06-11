@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a1a0a">
+  <title>Three.js Tree</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a1a0a; }
+    canvas { display: block; }
+    #hint {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.75);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 9px 22px;
+      border-radius: 24px;
+      pointer-events: none;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      transition: opacity 1s ease;
+    }
+    #hint.hidden { opacity: 0; }
+  </style>
+</head>
+<body>
+  <div id="hint">Drag to orbit &nbsp;·&nbsp; Pinch to zoom</div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // ── Renderer ──────────────────────────────────────────────────────────────
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    document.body.appendChild(renderer.domElement);
+
+    // ── Scene ─────────────────────────────────────────────────────────────────
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x0d2a0d, 0.012);
+
+    // ── Camera ────────────────────────────────────────────────────────────────
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(10, 9, 20);
+
+    // ── Controls ──────────────────────────────────────────────────────────────
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.07;
+    controls.minDistance = 5;
+    controls.maxDistance = 70;
+    controls.maxPolarAngle = Math.PI * 0.47;
+    controls.target.set(0, 7, 0);
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.6;
+    controls.update();
+
+    // Hide hint and stop auto-rotate on first touch/click
+    const hint = document.getElementById('hint');
+    renderer.domElement.addEventListener('pointerdown', () => {
+      controls.autoRotate = false;
+      hint.classList.add('hidden');
+    }, { once: true });
+
+    // ── Lighting ──────────────────────────────────────────────────────────────
+    scene.add(new THREE.AmbientLight(0x334433, 1.8));
+
+    const sun = new THREE.DirectionalLight(0xffd080, 2.2);
+    sun.position.set(20, 30, 15);
+    scene.add(sun);
+
+    const rimLight = new THREE.DirectionalLight(0x4466aa, 0.5);
+    rimLight.position.set(-15, 8, -10);
+    scene.add(rimLight);
+
+    // ── Sky gradient ──────────────────────────────────────────────────────────
+    const skySphere = new THREE.Mesh(
+      new THREE.SphereGeometry(120, 16, 8),
+      new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        uniforms: {
+          uTop:    { value: new THREE.Color(0x0b1e3a) },
+          uBottom: { value: new THREE.Color(0x1c4d1c) },
+        },
+        vertexShader: `
+          varying float vY;
+          void main() {
+            vY = normalize(position).y;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 uTop;
+          uniform vec3 uBottom;
+          varying float vY;
+          void main() {
+            float t = clamp((vY + 0.15) / 0.9, 0.0, 1.0);
+            gl_FragColor = vec4(mix(uBottom, uTop, pow(t, 0.6)), 1.0);
+          }
+        `
+      })
+    );
+    scene.add(skySphere);
+
+    // ── Ground ────────────────────────────────────────────────────────────────
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(80, 64),
+      new THREE.MeshLambertMaterial({ color: 0x2a5e18 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+
+    // ── Tree ──────────────────────────────────────────────────────────────────
+    const barkMat = new THREE.MeshLambertMaterial({ color: 0x6b4226 });
+    const leafPalette = [
+      new THREE.MeshLambertMaterial({ color: 0x2e7d32 }),
+      new THREE.MeshLambertMaterial({ color: 0x388e3c }),
+      new THREE.MeshLambertMaterial({ color: 0x1b5e20 }),
+      new THREE.MeshLambertMaterial({ color: 0x43a047 }),
+    ];
+
+    const treeRoot = new THREE.Group();
+    scene.add(treeRoot);
+
+    // Deterministic pseudo-random from a seed
+    function rng(s) { return (Math.sin(s * 127.1 + 311.7) * 43758.5453) % 1; }
+
+    function buildBranch(parent, len, rad, depth, seed) {
+      // Cylinder with pivot at base (y=0 .. y=len)
+      const geo = new THREE.CylinderGeometry(rad * 0.62, rad, len, 7);
+      geo.translate(0, len / 2, 0);
+      const mesh = new THREE.Mesh(geo, barkMat);
+      parent.add(mesh);
+
+      if (depth <= 0) {
+        // Leaf cluster at branch tip
+        const r = Math.abs(rng(seed * 3.7)) * 0.4 + 1.1;
+        const leafGeo = new THREE.SphereGeometry(r, 8, 6);
+        const leaf = new THREE.Mesh(leafGeo, leafPalette[Math.floor(Math.abs(rng(seed * 11)) * 4)]);
+        leaf.position.y = len;
+        leaf.scale.set(
+          1 + rng(seed * 2.1) * 0.25,
+          0.85 + rng(seed * 3.3) * 0.25,
+          1 + rng(seed * 4.7) * 0.25
+        );
+        mesh.add(leaf);
+        return;
+      }
+
+      const count = depth === 1 ? 5 : 3;
+      for (let i = 0; i < count; i++) {
+        const s = seed + i * 0.317 + depth * 0.119;
+        const g = new THREE.Group();
+        // Attach near the top of this branch
+        g.position.y = len * (0.82 + rng(s * 7.1) * 0.12);
+        g.rotation.y = (i / count) * Math.PI * 2 + rng(s * 5.3) * 0.8;
+        g.rotation.z = 0.35 + depth * 0.06 + rng(s * 9.7) * 0.15;
+        mesh.add(g);
+        buildBranch(g, len * (0.62 + rng(s * 3.1) * 0.08), rad * 0.60, depth - 1, s);
+      }
+    }
+
+    buildBranch(treeRoot, 5.5, 0.52, 4, 0.42);
+
+    // ── Ground grass tufts ────────────────────────────────────────────────────
+    const grassMat = new THREE.MeshLambertMaterial({ color: 0x3d7a18, side: THREE.DoubleSide });
+    for (let i = 0; i < 120; i++) {
+      const a = rng(i * 1.3) * Math.PI * 2;
+      const r = 2.5 + rng(i * 2.7) * 18;
+      const h = 0.25 + rng(i * 3.9) * 0.35;
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.09, h, 4), grassMat);
+      cone.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+      cone.rotation.y = rng(i * 5.1) * Math.PI;
+      cone.rotation.z = (rng(i * 7.3) - 0.5) * 0.3;
+      scene.add(cone);
+    }
+
+    // ── Floating leaf particles ────────────────────────────────────────────────
+    const LEAF_COUNT = 350;
+    const leafPos = new Float32Array(LEAF_COUNT * 3);
+    const leafVel = new Float32Array(LEAF_COUNT * 3);
+
+    for (let i = 0; i < LEAF_COUNT; i++) {
+      const a = rng(i * 1.7) * Math.PI * 2;
+      const r = rng(i * 2.3) * 14;
+      leafPos[i * 3]     = Math.cos(a) * r;
+      leafPos[i * 3 + 1] = rng(i * 3.1) * 22;
+      leafPos[i * 3 + 2] = Math.sin(a) * r;
+      leafVel[i * 3]     = (rng(i * 4.1) - 0.5) * 0.028;
+      leafVel[i * 3 + 1] = -(0.012 + rng(i * 5.3) * 0.018);
+      leafVel[i * 3 + 2] = (rng(i * 6.7) - 0.5) * 0.028;
+    }
+
+    const leafPtGeo = new THREE.BufferGeometry();
+    leafPtGeo.setAttribute('position', new THREE.BufferAttribute(leafPos, 3));
+    const leafPts = new THREE.Points(leafPtGeo, new THREE.PointsMaterial({
+      color: 0x66dd44,
+      size: 0.20,
+      transparent: true,
+      opacity: 0.80,
+      sizeAttenuation: true,
+    }));
+    scene.add(leafPts);
+
+    // ── Resize ────────────────────────────────────────────────────────────────
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ── Animation loop ────────────────────────────────────────────────────────
+    let t = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      t += 0.012;
+
+      // Gentle wind sway on the whole tree
+      treeRoot.rotation.x = Math.sin(t * 0.4) * 0.018;
+      treeRoot.rotation.z = Math.sin(t * 0.6 + 1.2) * 0.018;
+
+      // Update floating leaves
+      const p = leafPtGeo.attributes.position.array;
+      for (let i = 0; i < LEAF_COUNT; i++) {
+        p[i * 3]     += leafVel[i * 3]     + Math.sin(t + i * 0.7) * 0.004;
+        p[i * 3 + 1] += leafVel[i * 3 + 1];
+        p[i * 3 + 2] += leafVel[i * 3 + 2] + Math.cos(t * 0.8 + i * 0.5) * 0.004;
+
+        if (p[i * 3 + 1] < -0.5) {
+          const a2 = Math.random() * Math.PI * 2;
+          const r2 = Math.random() * 14;
+          p[i * 3]     = Math.cos(a2) * r2;
+          p[i * 3 + 1] = 20 + Math.random() * 4;
+          p[i * 3 + 2] = Math.sin(a2) * r2;
+        }
+      }
+      leafPtGeo.attributes.position.needsUpdate = true;
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // ── Register service worker for PWA offline support ───────────────────────
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
