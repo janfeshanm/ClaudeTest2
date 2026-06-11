@@ -195,6 +195,112 @@
       scene.add(cone);
     }
 
+    // ── Lumberjack ────────────────────────────────────────────────────────────
+    const skinMat   = new THREE.MeshLambertMaterial({ color: 0xfdbba0 });
+    const shirtMat  = new THREE.MeshLambertMaterial({ color: 0xc62828 }); // red flannel
+    const pantsMat  = new THREE.MeshLambertMaterial({ color: 0x1a237e }); // dark jeans
+    const bootMat   = new THREE.MeshLambertMaterial({ color: 0x3e2723 });
+    const hairMat   = new THREE.MeshLambertMaterial({ color: 0x4e342e });
+    const handleMat = new THREE.MeshLambertMaterial({ color: 0x8d6e63 });
+    const bladeMat  = new THREE.MeshLambertMaterial({ color: 0xb0bec5 });
+
+    // jack.rotation.y = -π/2 makes local +Z face world -X (toward tree at origin)
+    const jack = new THREE.Group();
+    jack.position.set(1.5, 0, 0);
+    jack.rotation.y = -Math.PI / 2;
+    scene.add(jack);
+
+    function jm(geo, mat, x, y, z) {
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(x, y, z);
+      jack.add(m);
+      return m;
+    }
+
+    // Boots
+    jm(new THREE.BoxGeometry(0.18, 0.15, 0.28), bootMat, -0.13, 0.075, 0.02);
+    jm(new THREE.BoxGeometry(0.18, 0.15, 0.28), bootMat,  0.13, 0.075, 0.02);
+    // Legs
+    jm(new THREE.CylinderGeometry(0.09, 0.10, 0.65, 6), pantsMat, -0.13, 0.475, 0);
+    jm(new THREE.CylinderGeometry(0.09, 0.10, 0.65, 6), pantsMat,  0.13, 0.475, 0);
+    // Torso
+    jm(new THREE.BoxGeometry(0.52, 0.58, 0.30), shirtMat, 0, 1.09, 0);
+    // Head
+    jm(new THREE.BoxGeometry(0.34, 0.34, 0.34), skinMat, 0, 1.62, 0);
+    // Hair
+    jm(new THREE.BoxGeometry(0.35, 0.09, 0.35), hairMat, 0, 1.82, 0);
+    // Beard
+    jm(new THREE.BoxGeometry(0.27, 0.12, 0.09), hairMat, 0, 1.48, 0.175);
+
+    // Right arm pivot at shoulder — animated for the chop swing
+    const rightArmPivot = new THREE.Group();
+    rightArmPivot.position.set(0.31, 1.36, 0);
+    jack.add(rightArmPivot);
+    const rArm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.065, 0.56, 6), shirtMat);
+    rArm.position.y = -0.28;
+    rightArmPivot.add(rArm);
+
+    // Axe — parented to right arm pivot so it swings with the arm
+    const axePivot = new THREE.Group();
+    axePivot.position.y = -0.56; // at arm tip / hand grip
+    rightArmPivot.add(axePivot);
+
+    const axeHandleMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.034, 0.028, 0.60, 6), handleMat
+    );
+    axeHandleMesh.position.y = -0.30; // handle center
+    axePivot.add(axeHandleMesh);
+
+    // Axe head: wide in local X (jack's +X = world +Z, so blade face is visible from the side)
+    const axeHeadMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.36, 0.30, 0.08), bladeMat
+    );
+    axeHeadMesh.position.set(0.06, -0.60, 0); // at handle end, bit toward cutting side
+    axePivot.add(axeHeadMesh);
+    // Poll (back of axe head)
+    const axePollMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.14, 0.22, 0.07), bladeMat
+    );
+    axePollMesh.position.set(-0.14, -0.60, 0);
+    axePivot.add(axePollMesh);
+
+    // Left arm pivot — small counter-sway for balance
+    const leftArmPivot = new THREE.Group();
+    leftArmPivot.position.set(-0.31, 1.36, 0);
+    jack.add(leftArmPivot);
+    const lArm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.065, 0.56, 6), shirtMat);
+    lArm.position.y = -0.28;
+    leftArmPivot.add(lArm);
+
+    // Chop wound on the trunk facing the lumberjack
+    const wound = new THREE.Mesh(
+      new THREE.BoxGeometry(0.62, 0.28, 0.36),
+      new THREE.MeshLambertMaterial({ color: 0xd4a46a })
+    );
+    wound.position.set(0.46, 0.38, 0);
+    treeRoot.add(wound);
+
+    // Wood chips scattered on the ground near the trunk base
+    const chipMat = new THREE.MeshLambertMaterial({ color: 0xc9b99a });
+    for (let i = 0; i < 18; i++) {
+      const chip = new THREE.Mesh(
+        new THREE.BoxGeometry(
+          0.10 + Math.abs(rng(i * 3.1)) * 0.12,
+          0.04,
+          0.06 + Math.abs(rng(i * 5.7)) * 0.07
+        ),
+        chipMat
+      );
+      chip.position.set(
+        0.65 + Math.abs(rng(i * 1.3)) * 1.1,
+        0.022,
+        rng(i * 2.9) * 0.95
+      );
+      chip.rotation.y = rng(i * 7.1) * Math.PI;
+      chip.rotation.z = rng(i * 9.3) * 0.3;
+      scene.add(chip);
+    }
+
     // ── Floating leaf particles ────────────────────────────────────────────────
     const LEAF_COUNT = 350;
     const leafPos = new Float32Array(LEAF_COUNT * 3);
@@ -239,6 +345,13 @@
       // Gentle wind sway on the whole tree
       treeRoot.rotation.x = Math.sin(t * 0.4) * 0.018;
       treeRoot.rotation.z = Math.sin(t * 0.6 + 1.2) * 0.018;
+
+      // Lumberjack chopping animation
+      // rotation.x > 0 swings arm toward the tree (jack's local +Z = world -X)
+      const chopSin = Math.sin(t * 2.2);
+      rightArmPivot.rotation.x = -0.10 + chopSin * 1.10; // -1.20 raised back → +1.00 impact
+      leftArmPivot.rotation.x  =  0.20 + Math.sin(t * 2.2 + 0.6) * 0.18; // small counter-sway
+      jack.rotation.z = chopSin * 0.04; // lean into swing
 
       // Update floating leaves
       const p = leafPtGeo.attributes.position.array;
