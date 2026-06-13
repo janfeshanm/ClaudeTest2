@@ -380,6 +380,104 @@
     kl(new THREE.BoxGeometry(0.12, 0.09, 0.17), kShoe,  -0.10, -0.36, -0.30); // L shoe
     kl(new THREE.BoxGeometry(0.12, 0.09, 0.17), kShoe,   0.10, -0.36, -0.30); // R shoe
 
+    // ── Logging truck ─────────────────────────────────────────────────────────
+    // truck.rotation.y = π/2 → local +Z maps to world +X
+    // so the truck length runs along world X; bed end (local z=-4.5) sits at world x≈1.0,
+    // right beside the lumberjack at (1.5, 0, 0)
+    const trkCab     = new THREE.MeshLambertMaterial({ color: 0x0d47a1 });
+    const trkBed     = new THREE.MeshLambertMaterial({ color: 0x546e7a });
+    const trkTire    = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
+    const trkHub     = new THREE.MeshLambertMaterial({ color: 0x9e9e9e });
+    const trkGlass   = new THREE.MeshLambertMaterial({ color: 0x80d8ff, transparent: true, opacity: 0.55 });
+    const trkChrome  = new THREE.MeshLambertMaterial({ color: 0xe0e0e0 });
+    const trkStake   = new THREE.MeshLambertMaterial({ color: 0x6d4c41 });
+    const trkLight   = new THREE.MeshLambertMaterial({ color: 0xfffde7, emissive: new THREE.Color(0x554400) });
+    const trkLogSide = new THREE.MeshLambertMaterial({ color: 0x8d6e63 });
+    const trkLogEnd  = new THREE.MeshLambertMaterial({ color: 0xe8cfa0 });
+
+    const truck = new THREE.Group();
+    truck.position.set(5.5, 0, -1.5);
+    truck.rotation.y = Math.PI / 2;
+    scene.add(truck);
+
+    function tm(geo, mat, x, y, z) {
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(x, y, z);
+      truck.add(m);
+      return m;
+    }
+
+    // Frame rail
+    tm(new THREE.BoxGeometry(1.8, 0.22, 7.2), trkBed, 0, 0.45, -1.1);
+
+    // Cab — hood (front lower) + main body + roof
+    tm(new THREE.BoxGeometry(1.90, 0.85, 1.40), trkCab, 0, 1.10,  1.90);
+    tm(new THREE.BoxGeometry(1.90, 1.40, 1.80), trkCab, 0, 1.75,  0.90);
+    tm(new THREE.BoxGeometry(1.75, 0.28, 1.70), trkCab, 0, 2.52,  0.85);
+    // Windshield & windows
+    tm(new THREE.BoxGeometry(1.65, 0.82, 0.07), trkGlass, 0, 2.00,  1.78);
+    tm(new THREE.BoxGeometry(1.58, 0.62, 0.07), trkGlass, 0, 2.00,  0.03);
+    tm(new THREE.BoxGeometry(0.07, 0.62, 1.24), trkGlass, -0.97, 2.00, 0.90);
+    tm(new THREE.BoxGeometry(0.07, 0.62, 1.24), trkGlass,  0.97, 2.00, 0.90);
+    // Grille + bumper
+    tm(new THREE.BoxGeometry(1.58, 0.72, 0.09), trkBed,    0, 1.04, 2.63);
+    tm(new THREE.BoxGeometry(2.02, 0.22, 0.18), trkChrome, 0, 0.67, 2.66);
+    // Headlights
+    tm(new THREE.BoxGeometry(0.30, 0.20, 0.08), trkLight, -0.64, 1.10, 2.66);
+    tm(new THREE.BoxGeometry(0.30, 0.20, 0.08), trkLight,  0.64, 1.10, 2.66);
+    // Exhaust stack
+    const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.0, 7), trkChrome);
+    stack.position.set(0.72, 2.55, 1.20);
+    truck.add(stack);
+
+    // Bed floor + walls + bulkhead
+    tm(new THREE.BoxGeometry(2.00, 0.10, 4.50), trkBed, 0, 0.68, -1.85);
+    tm(new THREE.BoxGeometry(0.10, 0.55, 4.50), trkBed, -0.95, 0.96, -1.85);
+    tm(new THREE.BoxGeometry(0.10, 0.55, 4.50), trkBed,  0.95, 0.96, -1.85);
+    tm(new THREE.BoxGeometry(2.00, 0.75, 0.10), trkBed, 0, 0.96,  0.03);
+
+    // Log stakes (vertical posts that keep logs from rolling off sides)
+    [-2.6, -1.3, 0.0].forEach(z => {
+      tm(new THREE.BoxGeometry(0.10, 1.10, 0.10), trkStake, -1.0, 1.30, z);
+      tm(new THREE.BoxGeometry(0.10, 1.10, 0.10), trkStake,  1.0, 1.30, z);
+    });
+
+    // Wheels — CylinderGeometry axis=Y rotated π/2 around Z → axis aligns with local X
+    [[-1.10, 0.53,  1.90],
+     [ 1.10, 0.53,  1.90],
+     [-1.15, 0.53, -1.00],
+     [ 1.15, 0.53, -1.00],
+     [-1.15, 0.53, -2.40],
+     [ 1.15, 0.53, -2.40],
+    ].forEach(([wx, wy, wz]) => {
+      const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.53, 0.53, 0.30, 12), trkTire);
+      tire.position.set(wx, wy, wz);
+      tire.rotation.z = Math.PI / 2;
+      truck.add(tire);
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.31, 8), trkHub);
+      hub.position.set(wx, wy, wz);
+      hub.rotation.z = Math.PI / 2;
+      truck.add(hub);
+    });
+
+    // Logs stacked in bed — cylinders along local X (= world -Z with this truck rotation)
+    // Material array: [side-bark, end-cap, end-cap]
+    const logBedMats = [trkLogSide, trkLogEnd, trkLogEnd];
+    [{ z: -3.2, y: 1.00, r: 0.32 },
+     { z: -2.3, y: 1.00, r: 0.29 },
+     { z: -1.5, y: 1.00, r: 0.31 },
+     { z: -2.8, y: 1.62, r: 0.27 },
+     { z: -1.9, y: 1.62, r: 0.25 },
+     { z: -2.4, y: 2.12, r: 0.22 },
+    ].forEach(({ z, y, r }) => {
+      const log = new THREE.Mesh(
+        new THREE.CylinderGeometry(r, r * 0.96, 1.78, 9), logBedMats
+      );
+      log.position.set(0, y, z);
+      log.rotation.z = Math.PI / 2;
+      truck.add(log);
+    });
+
     // ── Floating leaf particles ────────────────────────────────────────────────
     const LEAF_COUNT = 350;
     const leafPos = new Float32Array(LEAF_COUNT * 3);
