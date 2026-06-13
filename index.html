@@ -478,6 +478,161 @@
       truck.add(log);
     });
 
+    // ── Dinosaur (T-Rex eating meat) ──────────────────────────────────────────
+    const dinoGreen  = new THREE.MeshLambertMaterial({ color: 0x558b2f });
+    const dinoBellyM = new THREE.MeshLambertMaterial({ color: 0x8bc34a });
+    const dinoTooth  = new THREE.MeshLambertMaterial({ color: 0xfff9c4 });
+    const dinoEyeM   = new THREE.MeshLambertMaterial({ color: 0xf57f17, emissive: new THREE.Color(0x331100) });
+    const dinoNostM  = new THREE.MeshLambertMaterial({ color: 0x33691e });
+    const dinoMeatM  = new THREE.MeshLambertMaterial({ color: 0xb71c1c });
+    const dinoBoneM  = new THREE.MeshLambertMaterial({ color: 0xf5f5dc });
+    const dinoBloodM = new THREE.MeshLambertMaterial({ color: 0x7f0000 });
+
+    const dinoGroup = new THREE.Group();
+    dinoGroup.position.set(-4.0, 0, 7.0);
+    dinoGroup.rotation.y = 0.6;
+    scene.add(dinoGroup);
+
+    // ── Hind legs ──
+    [-0.72, 0.72].forEach(lx => {
+      const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.30, 1.55, 7), dinoGreen);
+      thigh.position.set(lx, 2.0, 0.1);  thigh.rotation.x = 0.15;
+      dinoGroup.add(thigh);
+      const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.17, 1.45, 7), dinoGreen);
+      shin.position.set(lx, 0.82, 0.45); shin.rotation.x = -0.25;
+      dinoGroup.add(shin);
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.20, 0.68), dinoGreen);
+      foot.position.set(lx, 0.10, 0.65);
+      dinoGroup.add(foot);
+      for (let ti = -1; ti <= 1; ti++) {
+        const toe = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.28, 4), dinoGreen);
+        toe.position.set(lx + ti * 0.16, 0.08, 0.93);
+        toe.rotation.x = Math.PI / 2;
+        dinoGroup.add(toe);
+      }
+    });
+
+    // ── Upper body (leaned forward for feeding pose) ──
+    const dinoBody = new THREE.Group();
+    dinoBody.position.set(0, 2.5, 0);
+    dinoBody.rotation.x = -0.85;
+    dinoGroup.add(dinoBody);
+
+    const torsoD = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.2, 2.8), dinoGreen);
+    dinoBody.add(torsoD);
+    const bellyD = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.55, 2.7), dinoBellyM);
+    bellyD.position.y = -0.55;
+    dinoBody.add(bellyD);
+
+    // Tail — four shrinking segments behind the body
+    [[1.00, 0.85, 1.20,  0.05, -1.85],
+     [0.70, 0.60, 1.00,  0.00, -3.00],
+     [0.44, 0.40, 0.90, -0.05, -3.95],
+     [0.24, 0.23, 0.70, -0.10, -4.80],
+    ].forEach(([w, h, d, dy, z]) => {
+      const seg = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), dinoGreen);
+      seg.position.set(0, dy, z);
+      dinoBody.add(seg);
+    });
+
+    // Tiny T-Rex arms
+    [-0.76, 0.76].forEach(ax => {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.09, 0.60, 6), dinoGreen);
+      arm.position.set(ax, 0.10, 1.20);
+      arm.rotation.z = ax > 0 ? 0.75 : -0.75;
+      arm.rotation.x = 0.45;
+      dinoBody.add(arm);
+      const hand = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.13, 0.20), dinoGreen);
+      hand.position.set(ax > 0 ? ax + 0.18 : ax - 0.18, -0.05, 1.38);
+      dinoBody.add(hand);
+    });
+
+    // ── Neck ──
+    const dinoNeck = new THREE.Group();
+    dinoNeck.position.set(0, 0.30, 1.40);
+    dinoNeck.rotation.x = -0.50;
+    dinoBody.add(dinoNeck);
+    const neckCylD = new THREE.Mesh(new THREE.CylinderGeometry(0.37, 0.52, 1.55, 7), dinoGreen);
+    neckCylD.position.y = -0.78;
+    dinoNeck.add(neckCylD);
+
+    // ── Head ──
+    const dinoHead = new THREE.Group();
+    dinoHead.position.y = -1.55;
+    dinoHead.rotation.x = 0.25; // tilt toward meat
+    dinoNeck.add(dinoHead);
+
+    const skullD = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.62, 0.88), dinoGreen);
+    skullD.position.set(0, 0.14, -0.12);
+    dinoHead.add(skullD);
+    const upperSnout = new THREE.Mesh(new THREE.BoxGeometry(1.04, 0.40, 1.52), dinoGreen);
+    upperSnout.position.set(0, -0.10, 0.82);
+    dinoHead.add(upperSnout);
+
+    // Eyes + brow ridges
+    [-0.52, 0.52].forEach(ex => {
+      const eyeM = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), dinoEyeM);
+      eyeM.position.set(ex, 0.36, 0.08);
+      dinoHead.add(eyeM);
+      const brow = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.09, 0.15), dinoGreen);
+      brow.position.set(ex, 0.50, 0.0);
+      dinoHead.add(brow);
+    });
+    [-0.22, 0.22].forEach(nx => {
+      const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.06, 5, 4), dinoNostM);
+      nostril.position.set(nx, 0.08, 1.52);
+      dinoHead.add(nostril);
+    });
+
+    // Upper teeth (point downward)
+    for (let i = -2; i <= 2; i++) {
+      const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.22, 4), dinoTooth);
+      tooth.position.set(i * 0.19, -0.28, 0.65 + Math.abs(i) * 0.05);
+      tooth.rotation.z = Math.PI;
+      upperSnout.add(tooth);
+    }
+
+    // ── Lower jaw (pivot animated for chewing) ──
+    const jawPivot = new THREE.Group();
+    jawPivot.position.set(0, -0.04, -0.18);
+    dinoHead.add(jawPivot);
+    const lowerJawD = new THREE.Mesh(new THREE.BoxGeometry(1.00, 0.32, 1.48), dinoGreen);
+    lowerJawD.position.set(0, -0.14, 0.76);
+    jawPivot.add(lowerJawD);
+    for (let i = -2; i <= 2; i++) {
+      const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.050, 0.20, 4), dinoTooth);
+      tooth.position.set(i * 0.18, 0.18, 0.65 + Math.abs(i) * 0.04);
+      lowerJawD.add(tooth);
+    }
+
+    // ── Meat pile (on ground in front of dinosaur) ──
+    const meatPile = new THREE.Group();
+    meatPile.position.set(0, 0, 2.80);
+    dinoGroup.add(meatPile);
+
+    const mp1 = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.52, 0.78), dinoMeatM);
+    mp1.position.y = 0.26; meatPile.add(mp1);
+    const mp2 = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.38, 0.52), dinoMeatM);
+    mp2.position.set(0.38, 0.22, 0.30); meatPile.add(mp2);
+    const mp3 = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.28, 0.40), dinoMeatM);
+    mp3.position.set(-0.32, 0.18, 0.28); meatPile.add(mp3);
+
+    // Bone protruding from the meat
+    const boneShaftD = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.35, 6), dinoBoneM);
+    boneShaftD.position.set(-0.12, 0.68, 0.08);
+    boneShaftD.rotation.z = 0.55; boneShaftD.rotation.x = 0.18;
+    meatPile.add(boneShaftD);
+    const bk1 = new THREE.Mesh(new THREE.SphereGeometry(0.17, 6, 5), dinoBoneM);
+    bk1.position.set(-0.52, 1.10, 0.16); meatPile.add(bk1);
+    const bk2 = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 5), dinoBoneM);
+    bk2.position.set(0.28, 0.26, 0.0);  meatPile.add(bk2);
+
+    // Dark blood pool on the ground
+    const bloodPool = new THREE.Mesh(new THREE.CircleGeometry(0.72, 10), dinoBloodM);
+    bloodPool.rotation.x = -Math.PI / 2;
+    bloodPool.position.y = 0.01;
+    meatPile.add(bloodPool);
+
     // ── Floating leaf particles ────────────────────────────────────────────────
     const LEAF_COUNT = 350;
     const leafPos = new Float32Array(LEAF_COUNT * 3);
@@ -534,6 +689,11 @@
       const swingAngle = Math.sin(t * 1.1) * 0.42;
       swingPivot.rotation.x = swingAngle;
       kidLegsGroup.rotation.x = Math.sin(t * 1.1 + 0.7) * 0.30; // legs kick out of phase
+
+      // Dinosaur eating animation
+      jawPivot.rotation.x = Math.max(0, Math.sin(t * 2.0)) * 0.55; // jaw snaps open/shut
+      dinoHead.rotation.x = 0.25 + Math.sin(t * 0.9) * 0.12;       // slow head bob
+      dinoGroup.rotation.y = 0.6 + Math.sin(t * 0.22) * 0.07;      // subtle body sway
 
       // Update floating leaves
       const p = leafPtGeo.attributes.position.array;
